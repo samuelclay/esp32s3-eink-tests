@@ -13,7 +13,7 @@
 Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 #define EPD_DEBUG   1
 
-#define EPD_CS      15
+#define EPD_CS      10
 #define EPD_DC      16
 #define SRAM_CS     3
 #define SD_CS       46
@@ -22,15 +22,16 @@ Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
 #define EPD_WIDTH   200
 #define EPD_HEIGHT  200
-#define HSPI_MISO 12
-#define HSPI_MOSI 13
-#define HSPI_SCLK 14
-#define HSPI_CS   15
-SPIClass * hspi = new SPIClass(HSPI);
-// SPIClass SPI3(FSPI);
+#define HSPI_MISO 13
+#define HSPI_MOSI 11
+#define HSPI_SCLK 12
+#define HSPI_CS   10
+// SPIClass * hspi = new SPIClass(HSPI);
 // Adafruit_SSD1681 display(200, 200, HSPI_MOSI, HSPI_SCLK, EPD_DC,
 //                    EPD_RESET, EPD_CS, SRAM_CS, HSPI_MISO,
 //                    EPD_BUSY);
+// SPIClass *spi = NULL;
+Adafruit_SSD1681 display(200, 200, EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
 
 // Bluetooth Low Energy
 // Turn Touch Remote Control
@@ -94,12 +95,18 @@ static void handleButtonStatusNotification(BLERemoteCharacteristic *pCharacteris
     Serial.println(" ---> Button status notification received.");
     buttonStatus = (char *)pData;
     newButtonStatus = true;
+  } else {
+    Serial.println(" ---> Button status notification received but ignored.");
   }
 }
 
 class AdvertisingCallback: public BLEAdvertisedDeviceCallbacks {
   void onResult(BLEAdvertisedDevice advertisedDevice) {
-    if (advertisedDevice.getName() == TT_BLE_NAME) {
+    Serial.print(" ---> Found remote device named: ");
+    Serial.print(advertisedDevice.getServiceUUID().toString().c_str());
+    Serial.print(" --- ");
+    Serial.println(advertisedDevice.toString().c_str());
+    if (advertisedDevice.getName() == TT_BLE_NAME || (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(ttButtonStatusServiceUuid))) {
       advertisedDevice.getScan()->stop();
       pRemoteAddress = new BLEAddress(advertisedDevice.getAddress());
       needsConnect = true;
@@ -109,19 +116,24 @@ class AdvertisingCallback: public BLEAdvertisedDeviceCallbacks {
 };
 
 void setup() {
-  pinMode(HSPI_CS, OUTPUT); //HSPI SS
-  hspi->begin(HSPI_SCLK, HSPI_MISO, HSPI_MOSI, HSPI_CS); //SCLK, MISO, MOSI, SS
+  // pinMode(HSPI_CS, OUTPUT); //HSPI SS
+  // hspi->begin(HSPI_SCLK, HSPI_MISO, HSPI_MOSI, HSPI_CS); //SCLK, MISO, MOSI, SS
+  // spi = new SPIClass(SPI);
 
-  pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
+  pixels.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
   pixels.setBrightness(20); // not so bright
 
   pixels.fill(0xFF0000);
   pixels.show();
 
+
   Serial.begin(115200);
   Serial.println("Hello! EPD Test");
 
-  Adafruit_SSD1681 display = Adafruit_SSD1681(EPD_WIDTH, EPD_HEIGHT, EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY, hspi);
+  // Adafruit_SSD1681 display = Adafruit_SSD1681(EPD_WIDTH, EPD_HEIGHT, EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
+    // spi->begin(HSPI_SCLK, HSPI_MISO, HSPI_MOSI, HSPI_CS);
+  Serial.println("Initialized");
+
   display.begin();
 #if defined(FLEXIBLE_213) || defined(FLEXIBLE_290)
   // The flexible displays have different buffers and invert settings!
@@ -129,7 +141,6 @@ void setup() {
   display.setColorBuffer(1, false);
 #endif
 
-  Serial.println("Initialized");
 
   display.setRotation(2);
 
@@ -159,7 +170,10 @@ void setup() {
   BLEScan *pScanner = BLEDevice::getScan();
   pScanner->setAdvertisedDeviceCallbacks(new AdvertisingCallback());
   pScanner->setActiveScan(true);
-  pScanner->start(4, false);
+  BLEScanResults foundDevices = pScanner->start(10, false);
+  Serial.print(" ---> Found ");
+  Serial.print(foundDevices.getCount());
+  Serial.println(" devices");
 
   pixels.fill(0x00FF00);
   pixels.show();
