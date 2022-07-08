@@ -1,0 +1,24 @@
+diff --git a/libraries/BLE/src/BLEAdvertisedDevice.cpp b/libraries/BLE/src/BLEAdvertisedDevice.cpp
+index b1303aad..ee1edf73 100644
+--- a/libraries/BLE/src/BLEAdvertisedDevice.cpp
++++ b/libraries/BLE/src/BLEAdvertisedDevice.cpp
+@@ -297,6 +297,10 @@ void BLEAdvertisedDevice::parseAdvertisement(uint8_t* payload, size_t total_len)
+                                        setName(std::string(reinterpret_cast<char*>(payload), length));
+                                        break;
+                                } // ESP_BLE_AD_TYPE_NAME_CMPL
++                               case ESP_BLE_AD_TYPE_NAME_SHORT: {   // Adv Data Type: 0x08
++                                       setName(std::string(reinterpret_cast<char*>(payload), length));
++                                       break;
++                               } // ESP_BLE_AD_TYPE_NAME_SHORT
+ 
+                                case ESP_BLE_AD_TYPE_TX_PWR: {      // Adv Data Type: 0x0A
+                                        setTXPower(*payload);
+@@ -385,7 +389,7 @@ void BLEAdvertisedDevice::parseAdvertisement(uint8_t* payload, size_t total_len)
+                                } //ESP_BLE_AD_TYPE_32SERVICE_DATA
+ 
+                                default: {
+-                                       log_d("Unhandled type: adType: %d - 0x%.2x", ad_type, ad_type);
++                                       log_d("Unhandled BLEeee type: adType: %d - 0x%.2x", ad_type, ad_type);
+                                        break;
+                                }
+                        } // switch
