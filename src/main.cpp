@@ -12,23 +12,25 @@
 #define PIN_NEOPIXEL 48
 Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
-#define EPD_CS 10
+#define EPD_CS      10
 #define EPD_DC      16
-#define SRAM_CS     3
-#define SD_CS       46
+#define SRAM_CS     41
+#define SD_CS       42
 #define EPD_RESET   18 // can set to -1 and share with microcontroller Reset!
 #define EPD_BUSY    17 // can set to -1 to not use a pin (will wait a fixed delay)
 
 #define EPD_WIDTH   200
 #define EPD_HEIGHT  200
-#define HSPI_MISO 13
-#define HSPI_MOSI 11
-#define HSPI_SCLK 12
-#define HSPI_CS   EPD_CS
-// SPIClass * hspi = new SPIClass(FSPI);
+#define HSPI_MISO   13
+#define HSPI_MOSI   11
+#define HSPI_SCLK   12
+#define HSPI_CS     EPD_CS
+// SPIClass *hspi = NULL;
+// SPIClass SPI1(HSPI);
 // Adafruit_SSD1681 display(200, 200, HSPI_MOSI, HSPI_SCLK, EPD_DC,
 //                    EPD_RESET, EPD_CS, SRAM_CS, HSPI_MISO,
 //                    EPD_BUSY);
+// Adafruit_SSD1681 display(EPD_WIDTH, EPD_HEIGHT, EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
 Adafruit_SSD1681 display(EPD_WIDTH, EPD_HEIGHT, EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
 
 // Bluetooth Low Energy
@@ -49,7 +51,7 @@ static BLERemoteCharacteristic *deviceNicknameCharacteristic;
 static BLERemoteCharacteristic *batteryLevelCharacteristic;
 const uint8_t notificationOn[] = {0x1, 0x0};
 const uint8_t notificationOff[] = {0x0, 0x0};
-char *buttonStatus;
+uint8_t buttonStatus[] = {0x0, 0x0};
 char *deviceNickname;
 float batteryLevel;
 bool newButtonStatus = false;
@@ -57,6 +59,23 @@ bool newDeviceNickname = false;
 bool newBatteryLevel = false;
 
 static void handleButtonStatusNotification(BLERemoteCharacteristic *pCharacteristic, uint8_t *pData, size_t length, bool isNotify);
+
+void epdDisplayText(String text) {
+  int offset = 6*text.length();
+  display.clearDisplay();
+
+  display.clearBuffer();
+  display.setCursor(display.width()/2-offset, display.height()/2-8);
+  display.setTextColor(EPD_BLACK);
+  display.setTextSize(2);
+  display.print(text);
+
+  display.drawLine(0, display.height()/2, display.width()/2, display.height(), EPD_BLACK);
+  display.drawLine(display.width()/2, display.height(), display.width(), display.height()/2, EPD_BLACK);
+  display.drawLine(display.width(), display.height()/2, display.width()/2, 0, EPD_BLACK);
+  display.drawLine(display.width()/2, 0, 0, display.height()/2, EPD_BLACK);
+  display.display();
+}
 
 bool connectToRemoteDevice(BLEAddress pAddress)
 {
@@ -103,9 +122,9 @@ static void handleButtonStatusNotification(BLERemoteCharacteristic *pCharacteris
     for (int i = 0; i < length; i++) {
       Serial.print(pData[i], HEX);
       Serial.print(" ");
+      buttonStatus[i] = pData[i];
     }
     Serial.println("");
-    buttonStatus = (char *)pData;
     newButtonStatus = true;
   } else {
     Serial.println(" ---> Button status notification received but ignored.");
@@ -136,9 +155,12 @@ static void my_gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
 }
 
 void setup() {
+  // hspi = new SPIClass(HSPI);
+  // hspi->begin(HSPI_SCLK, HSPI_MOSI, HSPI_MISO, HSPI_CS);
+  // Adafruit_SSD1681 display(200, 200, HSPI_MOSI, HSPI_SCLK, EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, HSPI_MISO, EPD_BUSY);
+
+  // hspi.begin(HSPI_SCLK, HSPI_MISO, HSPI_MOSI, HSPI_CS); //SCLK, MISO, MOSI, SS
   // pinMode(HSPI_CS, OUTPUT); //HSPI SS
-  // hspi = new SPIClass(FSPI);
-  // hspi->begin(HSPI_SCLK, HSPI_MISO, HSPI_MOSI, HSPI_CS); //SCLK, MISO, MOSI, SS
 
   pixels.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
   pixels.setBrightness(20); // not so bright
@@ -150,59 +172,23 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Hello! EPD Test");
 
+  Serial.print("SCK:"); Serial.println(SCK);
+  Serial.print("MISO:"); Serial.println(MISO);
+  Serial.print("MOSI:"); Serial.println(MOSI);
+  Serial.print("SS:"); Serial.println(SS);
+
   // Adafruit_SSD1681 display = Adafruit_SSD1681(EPD_WIDTH, EPD_HEIGHT, EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY);
     // spi->begin(HSPI_SCLK, HSPI_MISO, HSPI_MOSI, HSPI_CS);
   Serial.println("Initialized");
 
-  display.begin();
-  
-    // large block of text
-  display.clearBuffer();
-  display.setCursor(0, 0);
-  display.setTextColor(EPD_BLACK);
-  display.setTextWrap(true);
-  display.print("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur adipiscing ante sed nibh tincidunt feugiat. Maecenas enim massa, fringilla sed malesuada et, malesuada sit amet turpis. Sed porttitor neque ut ante pretium vitae malesuada nunc bibendum. Nullam aliquet ultrices massa eu hendrerit. Ut sed nisi lorem. In vestibulum purus a tortor imperdiet posuere. ");
-  // display.display();
-
-  // delay(2000);
-
-  display.clearBuffer();
-  for (int16_t i=0; i<display.width(); i+=4) {
-    display.drawLine(0, 0, i, display.height()-1, EPD_BLACK);
-  }
-
-  for (int16_t i=0; i<display.height(); i+=4) {
-    display.drawLine(display.width()-1, 0, 0, i, EPD_BLACK);
-  }
-  // display.display();
-
-#if defined(FLEXIBLE_213) || defined(FLEXIBLE_290)
-  // The flexible displays have different buffers and invert settings!
-  display.setBlackBuffer(1, false);
-  display.setColorBuffer(1, false);
-#endif
-
-
-  // display.setRotation(2);
-
-  // large block of text
-  // display.clearBuffer();
-  // display.setTextWrap(true);
-
-  display.setCursor(10, 10);
-  display.setTextSize(1);
-  display.setTextColor(EPD_BLACK);
-  display.print("Get as much education as you can. Nobody can take that away from you");
-
-  display.setCursor(50, 70);
-  display.setTextColor(EPD_RED);
-  display.print("--Eben Upton");
+  display.begin(true);
+  display.setRotation(3);
 
   pixels.fill(0x00FF00);
   pixels.show();
 
-  // display.display();
-
+  epdDisplayText("Searching...");
+  delay(2000);
   pixels.fill(0x0000FF);
   pixels.show();
 
@@ -252,6 +238,8 @@ void loop() {
       Serial.println(" ---> Connected to remote");
       buttonStatusCharacteristic->getDescriptor(BLEUUID("2902"))->writeValue((uint8_t *)notificationOn, 2, true);
       isConnected = true;
+      
+      epdDisplayText("Remote found...");
     }
     else
     {
@@ -274,6 +262,29 @@ void loop() {
     newButtonStatus = false;
     pixels.fill(0x0000FF);
     pixels.show();
+    Serial.print(" --> Button status: ");
+    Serial.println(buttonStatus[0]);
+    switch (buttonStatus[0])
+    {
+    case 0xFE:
+      epdDisplayText("North");
+      break;
+    
+    case 0xFD:
+      epdDisplayText("East");
+      break;
+    
+    case 0xFB:
+      epdDisplayText("West");
+      break;
+    
+    case 0xF7:
+      epdDisplayText("South");
+      break;
+    
+    default:
+      break;
+    }
     delay(1500); // wait half a second
   }
 }
